@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Hello World</title>
+
+
+<link rel="stylesheet" href="https://js.arcgis.com/3.23/esri/css/esri.css">
+<script src="https://js.arcgis.com/3.23/"></script>
+
+
+
+<style>
+  #info {
+        top: 20px;
+        color: #444;
+        height: auto;
+        font-family: arial;
+        right: 20px;
+        margin: 5px;
+        padding: 10px;
+        position: absolute;
+        width: 115px;
+        z-index: 40;
+        border: solid 2px #666;
+        border-radius: 4px;
+        background-color: #fff;
+      }
+
+  html, body, #map {
+    height: 100%;
+    padding: 0;
+    margin: 0;
+  }
+</style>
+
+
+
+<script>
+	var map;
+  var tb;
+  var featureLayer;
+  require(["esri/map", 
+          "esri/layers/FeatureLayer",
+          "esri/InfoTemplate",
+          "esri/toolbars/draw",
+          "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol",
+          "esri/symbols/PictureFillSymbol", "esri/symbols/CartographicLineSymbol", 
+          "esri/graphic", 
+          "esri/Color", "dojo/dom", "dojo/on",
+          "dojo/domReady!"
+          ], 
+  function(Map,
+          FeatureLayer,
+          InfoTemplate,
+          Draw,
+          SimpleMarkerSymbol, SimpleLineSymbol,
+          PictureFillSymbol, CartographicLineSymbol, 
+          Graphic, 
+          Color, dom, on
+          ) {
+  map = new Map("map", {
+    basemap: "streets",
+    center: [100.545161,13.748127],
+    zoom: 9
+  });
+  map.on("load", initToolbar);
+  var markerSymbol = new SimpleMarkerSymbol();
+  function initToolbar() {
+          tb = new Draw(map);
+          tb.on("draw-end", addGraphic);
+
+          // event delegation so a click handler is not
+          // needed for each individual button
+          on(dom.byId("info"), "click", function(evt) {
+            if ( evt.target.id === "info" ) {
+              return;
+            } else if (evt.target.id === "Clear") {
+              map.graphics.clear();
+              return;
+            }
+            var tool = evt.target.id.toLowerCase();
+            map.disableMapNavigation();
+            tb.activate(tool);
+          });
+        }
+  function addGraphic(evt) {
+          //deactivate the toolbar and clear existing graphics 
+          tb.deactivate(); 
+          map.enableMapNavigation();
+
+          // figure out which symbol to use
+          var symbol;
+          if ( evt.geometry.type === "point" || evt.geometry.type === "multipoint") {
+            symbol = markerSymbol;
+          } else if ( evt.geometry.type === "line" || evt.geometry.type === "polyline") {
+            symbol = lineSymbol;
+          }
+          else {
+            symbol = fillSymbol;
+          }
+
+          map.graphics.add(new Graphic(evt.geometry, symbol));
+        }
+  var infoTemplate = new InfoTemplate("${Status}","${*}");
+  featureLayer = new FeatureLayer("https://services6.arcgis.com/4JYrAeFHErIECaeV/arcgis/rest/services/report/FeatureServer/0",{
+    infoTemplate : infoTemplate
+  });
+
+  map.addLayer(featureLayer);
+
+    // code to create the map and add a basemap will go here
+  });
+</script>
+
+
+
+  </head>
+
+
+<body class="claro">
+  <div id="info">
+      <div>Select a shape then draw on map to add graphic</div>
+      <button id="Point">Point</button>
+      <button id="Clear">Clear</button>
+  </div>
+
+  <div id="map"></div>
+</body>
+
+
+</html>
+
