@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>JSON Content</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <link rel="stylesheet" href="https://js.arcgis.com/3.17/esri/css/esri.css">
+  <style>
+    body{
+      font-family: "Arial Unicode MS, Arial, sans-serif";
+    }
+    #content {
+      width: 800px; height: 350px; padding: 5px; overflow: auto;
+      border: solid 2px #AAAAAA; background-color: #FFFFFF;
+      -moz-border-radius: 5px; -webkit-border-radius: 5px; -o-border-radius: 5px; border-radius: 5px;
+      -moz-box-shadow: 0 0 0.5em black; -webkit-box-shadow: 0 0 0.5em black; -o-box-shadow: 0 0 0.5em black; box-shadow: 0 0 0.5em black;
+    }
+    .failure { color: red; }
+    #status { font-size: 12px; }
+  </style>
+
+  <script src="https://js.arcgis.com/3.17/"></script>
+  <script>
+    var graphicLayer;
+    require([
+        "dojo/dom",
+        "dojo/on",
+        "dojo/dom-class",
+        "dojo/_base/json",
+        "esri/config",
+        "esri/request",
+        "esri/map",
+        "esri/geometry/Point", "esri/SpatialReference",
+        "esri/symbols/SimpleMarkerSymbol", "esri/graphic",
+        "esri/layers/GraphicsLayer",
+        "esri/renderers/ClassBreaksRenderer",
+        "esri/Color",
+        "dojo/domReady!"
+      ],
+      function(
+        dom,
+        on,
+        domClass,
+        dojoJson,
+        esriConfig,
+        esriRequest,
+        Map,
+        Point, SpatialReference, SimpleMarkerSymbol, Graphic,
+        GraphicsLayer,
+        ClassBreaksRenderer,
+        Color
+      ) {
+
+        // Use CORS-enabled https URL
+        dom.byId("url").value = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson";
+        esriConfig.defaults.io.corsEnabledServers.push("earthquake.usgs.gov");
+
+        // Or live feed
+        //    dom.byId("url").value = "http://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/1.0_day.geojson"; // live feed (but doesn't support https/cors)
+        // proxy required for http://earthquake.usgs.gov
+        //    esriConfig.defaults.io.proxyUrl = "/proxy/";
+
+        dom.byId("content").value = "";
+
+        //handle the Go button's click event
+        on(dom.byId("submitRequest"), "click", getContent);
+        on(dom.byId("setBreak"), "click", function() {
+          var value = dom.byId("break").value;
+          class1.clearBreaks();
+          class1.addBreak(0,parseInt(value),greenSymbol);
+          class1.addBreak(parseInt(value),9,redSymbol);
+          graphicLayer.setRenderer(class1);
+          graphicLayer.refresh();
+        });
+        
+        var map = new Map("map",{
+          basemap:"streets",
+          zoom:1
+        });
+
+        graphicLayer = new GraphicsLayer();
+        map.addLayer(graphicLayer);
+        var gColor = new Color([0,255,0,0.5]);
+        var defaultsSymbol = new SimpleMarkerSymbol();
+        //defaultsSymbol.setStyle(SimpleMarkerSymbol.STYLE_X);
+        var greenSymbol = new SimpleMarkerSymbol();
+        //greenSymbol.setStyle(SimpleMarkerSymbol.STYLE_X);
+        greenSymbol.setColor(gColor);
+        console.log(greenSymbol);
+        var redSymbol = new SimpleMarkerSymbol();
+        //redSymbol.setStyle(SimpleMarkerSymbol.STYLE_X);
+        redSymbol.setColor(new Color([255,0,0,0.5]));
+        var class1 = new ClassBreaksRenderer(defaultsSymbol,"mag");
+        class1.addBreak(0,3,greenSymbol);
+        class1.addBreak(3,9,redSymbol);
+        graphicLayer.setRenderer(class1);
+
+        
+        function getContent(){
+
+          var contentDiv = dom.byId("content");
+          contentDiv.value = "";
+          domClass.remove(contentDiv, "failure");
+          dom.byId("status").innerHTML = "Downloading...";
+
+          var requestHandle = esriRequest({
+            "url": dom.byId("url").value
+          });
+          requestHandle.then(requestSucceeded, requestFailed);
+        }
+
+        function requestSucceeded(response, io){
+          dom.byId("status").innerHTML = "";
+          dojoJson.toJsonIndentStr = "  ";
+          dom.byId("content").value = dojoJson.toJson(response, true);
+          graphicLayer.clear();
+          var features = response.features;
+          var spatialReference = new SpatialReference({wkid:4326});
+          var simpleMarkerSymbol = new SimpleMarkerSymbol();
+          //simpleMarkerSymbol.setStyle(SimpleMarkerSymbol.STYLE_X);
+          simpleMarkerSymbol.setColor(new Color([255,255,0]));
+          for (var i=0;i<features.length;i++) {
+            var x = features[i].geometry.coordinates[0];
+            var y = features[i].geometry.coordinates[1];
+            var point = new Point(x, y, spatialReference);
+            var attr = {"mag":features[i].properties.mag,"place":features[i].properties.place};
+            var graphic = new Graphic(point, null,attr);
+            graphicLayer.add(graphic);
+          }
+        }
+        function requestFailed(error, io){
+
+          domClass.add(dom.byId("content"), "failure");
+          dom.byId("status").innerHTML = "";
+
+          dojoJson.toJsonIndentStr = " ";
+          dom.byId("content").value = dojoJson.toJson(error, true);
+
+        }
+    });
+  </script>
+
+</head>
+<body>
+  <p>Download content available in <b>JSON</b> format using esriRequest. </p>
+  <p>
+    <input type="text" id="url" size="100"/>
+    <input id="submitRequest" type="button" value="GO" />
+    <br/>
+    <input type="text" id="break"/>
+    <input id="setBreak" type="button" value="set" />
+    
+    <span id="status"></span>
+  </p>
+  <div id="map" style="width:'500px';height:'400px'">
+  </div>
+  <p>
+    <h2>Content</h2>
+    <textarea id="content"></textarea>
+  </p>
+</body>
+</html>
